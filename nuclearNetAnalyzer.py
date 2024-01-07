@@ -2,6 +2,7 @@
 """
 @author: Dmitry Shishkin
 """
+#%% Imports:
 
 import os
 import numpy as np
@@ -60,9 +61,13 @@ def analyzeNetwork(net, mesa=True, netdir=None):
     
     return data_dict | {"network":net}
 
-data_dict = analyzeNetwork('mesa_alot', mesa=False, netdir=os.getcwd())
+# Call function to get the network data_dict 
+# In the example: mesa_80.net, do not go to MESA folder - instead look for in cwd.
+data_dict = analyzeNetwork('mesa_80', mesa=False, netdir=os.getcwd())
 
-#%%
+#########################################################################
+#%% Processing for the plotting part - building on the extract data_dict
+#########################################################################
 
 nrows = 200
 ncols = 200
@@ -115,7 +120,9 @@ dataB = np.ma.array(dataB.reshape((nrows, ncols)), mask=dataB==0)
 
 data[data.mask] = dataB[data.mask]
 
-#%%
+#########################################################################
+#%% Plotting part
+#########################################################################
 
 fig = plt.figure(figsize=[5,7], dpi=300)
 ax = plt.axes()
