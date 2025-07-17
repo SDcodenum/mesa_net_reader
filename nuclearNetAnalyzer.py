@@ -28,9 +28,7 @@ def analyzeNetwork(net, mesa=True, netdir=None):
     Parameters
     ----------
     net : str
-        File name to be read in. Default is 'LOGS/history.data', which works
-        for scripts in a standard work directory with a standard logs directory
-        for accessing the history data.
+        .net file name to be read in.
     mesa : bool, optional
         Whether to assume MESA tree as the source or in dir. 
         Default is False, i.e, look for the $MESA_DIR enviromental variable and
@@ -63,90 +61,83 @@ def analyzeNetwork(net, mesa=True, netdir=None):
 
 # Call function to get the network data_dict 
 # In the example: mesa_80.net, do not go to MESA folder - instead look for in cwd.
-data_dict = analyzeNetwork('mesa_80', mesa=False, netdir=os.getcwd())
+# data_dict = analyzeNetwork('example/mesa_80', mesa=False, netdir=os.getcwd())
 
 #########################################################################
 #%% Processing for the plotting part - building on the extract data_dict
 #########################################################################
 
-nrows = 200
-ncols = 200
-
-minProt = 0; maxProt = 0;
-minNeut = 0; maxNeut = 0;
-
-elementName=[]
-eleLabelPos=[]
-
-# Isotopes are displayed in dark blue
-Iso_id=[]
-# Numbers are extracted from a csv : "periodicTableNames.csv"
-# Source: Self
-periodicTable = pd.read_csv('periodicTableNames.csv') 
-for element in list(data_dict.keys())[:-1:1]:
-    y = np.array(periodicTable.AtomicNumber[periodicTable.Symbol==element.capitalize()])#prot
-    x = np.array(data_dict[element])-y                                                  #neut
-    if element == 'neut':
-        y = np.array(0); x = np.array(1);
-    elif element == 'prot':
-        y = np.array(1); x = np.array(0);
-    if element=='neut' or element=='prot':
-        elementName.append(element[0])
-    else:
-        elementName.append(element.capitalize())
-    eleLabelPos.append([y,np.min(x)-1])
-    minProt = min(y,minProt); maxProt = max(y,maxProt);                                 #for limits
-    minNeut = np.min([np.min(x),minNeut]); maxNeut = np.max([np.max(x),maxNeut]);       #for limits
-    Iso_id.append(x+y*ncols)
-
-Iso_id = np.array(list(pd.core.common.flatten(Iso_id)))
-Iso_val = Iso_id*0+1
-data = np.zeros(nrows*ncols)
-data[Iso_id] = Iso_val
-data = np.ma.array(data.reshape((nrows, ncols)), mask=data==0)
-
-Back_id=[]
-# Values are extracted from a csv : "nndc_nudat_data_export.csv"
-# Source: National Nuclear Data Center, information extracted from the NuDat database, https://www.nndc.bnl.gov/nudat/
-fullIsotopeList = pd.read_csv('nndc_nudat_data_export.csv') 
-for i,pro in enumerate(fullIsotopeList.z):
-    Back_id.append(fullIsotopeList.n[i]+pro*ncols)
+def getDataStructs(data_dict, periodicTable, fullIsotopeList, nrows=200, ncols=200, minProt=0, maxProt=200, minNeut=0, maxNeut=200):
+    """Function to get the data structures for plotting.
     
-Back_id = np.array(list(pd.core.common.flatten(Back_id)))
-Back_val = Back_id*0+0.1
-dataB = np.zeros(nrows*ncols)
-dataB[Back_id] = Back_val
-dataB = np.ma.array(dataB.reshape((nrows, ncols)), mask=dataB==0)
+    Parameters
+    ----------
+    periodicTable : pd.DataFrame, optional
+        DataFrame containing the periodic table information. Default is read from
+        'sources/periodicTableNames.csv'.
+    fullIsotopeList : pd.DataFrame, optional
+        DataFrame containing the full list of isotopes. Default is read from
+        'sources/nndc_nudat_data_export.csv'.
+    nrows : int, optional
+        Number of rows in the grid. Default is 200.
+    ncols : int, optional
+        Number of columns in the grid. Default is 200.
+        
+    Returns
+    -------
+    data : np.array
+        Array containing the isotopes data as a grid.
+    elementName : list
+        List of element names corresponding to the isotopes.
+    eleLabelPos : list
+        List of positions for the element labels.
+    """
 
-data[data.mask] = dataB[data.mask]
+    elementName=[]
+    eleLabelPos=[]
 
-#########################################################################
-#%% Plotting part
-#########################################################################
+    # Isotopes are displayed in dark blue
+    Iso_id=[]
+    # Numbers are extracted from a csv : "periodicTableNames.csv"
+    # Source: Self
+    # periodicTable = pd.read_csv('sources/periodicTableNames.csv') 
+    for element in list(data_dict.keys())[:-1:1]:
+        y = np.array(periodicTable.AtomicNumber[periodicTable.Symbol==element.capitalize()])#prot
+        x = np.array(data_dict[element])-y                                                  #neut
+        if element == 'neut':
+            y = np.array(0); x = np.array(1);
+        elif element == 'prot':
+            y = np.array(1); x = np.array(0);
+        if element=='neut' or element=='prot':
+            elementName.append(element[0])
+        else:
+            elementName.append(element.capitalize())
+        eleLabelPos.append([y,np.min(x)-1])
+        minProt = min(y,minProt); maxProt = max(y,maxProt);                                 #for limits
+        minNeut = np.min([np.min(x),minNeut]); maxNeut = np.max([np.max(x),maxNeut]);       #for limits
+        Iso_id.append(x+y*ncols)
 
-fig = plt.figure(figsize=[5,7], dpi=300)
-ax = plt.axes()
-font = {'size'   : 10}
-plt.rc('font', **font)
-fig.subplots_adjust(top=0.9, bottom=0.15, left=0.05, right=0.99)
-ax.imshow(data, cmap="Blues", origin="lower", vmin=0)
-for j,iso in enumerate(np.array(elementName)):
-    ax.text(eleLabelPos[j][1],eleLabelPos[j][0],iso,ha='center',va='center',fontsize=6)
-# add grid
-ax.set_xticks(np.arange(ncols+1)-0.5, minor=True)
-ax.set_yticks(np.arange(nrows+1)-0.5, minor=True)
-ax.grid(which="minor")
-ax.tick_params(which="minor", size=0)
-ax.set_xlabel('Neutrons') #N
-ax.set_ylabel('Protons') #Z
-ax.set_xlim(minNeut-0.5, maxNeut+0.5)
-ax.set_ylim(minProt-0.5, maxProt+0.5)
-# ax.set_xlim(0-0.5, 180)
-# ax.set_ylim(0-0.5, 120)
+    Iso_id = np.array(list(pd.core.common.flatten(Iso_id)))
+    Iso_val = Iso_id*0+1
+    data = np.zeros(nrows*ncols)
+    data[Iso_id] = Iso_val
+    data = np.ma.array(data.reshape((nrows, ncols)), mask=data==0)
 
-fig.suptitle(data_dict['network'])
+    Back_id=[]
+    # Values are extracted from a csv : "nndc_nudat_data_export.csv"
+    # Source: National Nuclear Data Center, information extracted from the NuDat database, https://www.nndc.bnl.gov/nudat/
+    # fullIsotopeList = pd.read_csv('sources/nndc_nudat_data_export.csv') 
+    for i,pro in enumerate(fullIsotopeList.z):
+        Back_id.append(fullIsotopeList.n[i]+pro*ncols)
+        
+    Back_id = np.array(list(pd.core.common.flatten(Back_id)))
+    Back_val = Back_id*0+0.1
+    dataB = np.zeros(nrows*ncols)
+    dataB[Back_id] = Back_val
+    dataB = np.ma.array(dataB.reshape((nrows, ncols)), mask=dataB==0)
 
-plt.tight_layout()
-#plt.savefig(data_dict['network']+'Network.pdf',format='pdf')
+    data[data.mask] = dataB[data.mask]
+
+    return data.data, elementName, eleLabelPos
 
 
